@@ -1,122 +1,117 @@
-import React, { useCallback, useRef } from 'react';
-import ReactFlow, {
-    ReactFlowProvider,
-    addEdge,
-    useNodesState,
-    useEdgesState,
-    Controls,
-    Connection,
-    XYPosition,
-} from 'reactflow';
-import 'reactflow/dist/style.css';
+// src/components/TopologyCanvas.tsx
+
+import React, { useCallback } from 'react';
+import {
+  ReactFlow,
+  ReactFlowProvider,
+  addEdge,
+  useNodesState,
+  useEdgesState,
+  Controls,
+  type Connection,
+  type XYPosition,
+  type Node,
+  type Edge,
+  useReactFlow,
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+
 import { useTopologyStore } from '../store/useTopologyStore';
 import { ALL_DEVICE_TYPES } from '../model/deviceTypes';
-import { Device } from '../model/schema';
+import type { Device } from '../model/schema';
 
-// Define a custom node type map if needed later, for now, use default
+// Optional: custom node types map (empty for now)
 const nodeTypes = {};
 
-const initialNodes = [];
-const initialEdges = [];
+const initialNodes: Node[] = [];
+const initialEdges: Edge[] = [];
 
 const TopologyCanvasContent: React.FC = () => {
-    const reactFlowWrapper = useRef<HTMLDivElement>(null);
-    const { devices, edges, addDevice, addEdge: storeAddEdge } = useTopologyStore();
+  const rf = useReactFlow();
 
-    // React Flow state management (synced with ZUSTAND store later, but for now, use local state for simplicity)
-    // NOTE: In a real application, nodes/edges should be derived from the store state (devices/edges)
-    const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-    const [edgeFlows, setEdges, onEdgesChange] = useEdgesState(initialNodes);
+  // pull only what you need from your store for now
+  const { addDevice /*, addEdge: storeAddEdge, devices, edges */ } = useTopologyStore();
 
-    // Handler for connecting nodes
-    const onConnect = useCallback(
-        (params: Connection) => {
-            // Assuming we need to determine the protocol based on the connected devices later
-            // For now, just add the edge to React Flow state
-            setEdges((eds) => addEdge(params, eds));
-            
-            // If we were fully integrating with the store:
-            // const sourceDevice = devices.find(d => d.id === params.source);
-            // const targetDevice = devices.find(d => d.id === params.target);
-            // if (sourceDevice && targetDevice) {
-            //     // Logic to determine protocol and call storeAddEdge
-            // }
-        },
-        [setEdges]
-    );
+  // local UI state (we'll sync with store later)
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edgeFlows, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
-    // Handle dropping a new device onto the canvas
-    const onDrop = useCallback(
-        (event: React.DragEvent) => {
-            event.preventDefault();
+  const onConnect = useCallback(
+    (params: Connection) => {
+      setEdges((eds) => addEdge(params, eds));
+      // later: also persist to store if desired
+    },
+    [setEdges]
+  );
 
-            const reactFlowBounds = reactFlowWrapper.current?.getBoundingClientRect();
-            const type = event.dataTransfer.getData('application/reactflow');
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }, []);
 
-            if (typeof type === 'undefined' || !type || !reactFlowBounds) {
-                return;
-            }
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
 
-            const deviceDef = ALL_DEVICE_TYPES.find(d => d.type === type);
+      const type = event.dataTransfer.getData('application/reactflow');
+      if (!type) return;
 
-            if (deviceDef) {
-                // Placeholder for coordinate transformation (will be refined if useReactFlow is introduced)
-                const position: XYPosition = {
-                    x: event.clientX - reactFlowBounds.left,
-                    y: event.clientY - reactFlowBounds.top,
-                };
+      const deviceDef = ALL_DEVICE_TYPES.find((d) => d.type === type);
+      if (!deviceDef) return;
 
-                const newDevice: Omit<Device, 'id'> = {
-                    type: deviceDef.type,
-                    label: deviceDef.label,
-                    x: position.x,
-                    y: position.y,
-                    protocols: deviceDef.protocols,
-                };
+      // translate screen -> flow coords (handles zoom/pan correctly)
+      const position: XYPosition = rf.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
 
-                addDevice(newDevice);
-                
-                // NOTE: If we were fully integrating, we would update React Flow nodes based on the store state change.
-                // For now, we just update the store.
-            }
-        },
-        [addDevice]
-    );
+      // store model
+      const newDevice: Omit<Device, 'id'> = {
+        type: deviceDef.type,
+        label: deviceDef.label,
+        x: position.x,
+        y: position.y,
+        protocols: deviceDef.protocols,
+      };
+      addDevice(newDevice);
 
-    const onDragOver = useCallback((event: React.DragEvent) => {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = 'move';
-    }, []);
+      // immediate UI feedback with a temp node
+      const tempId = `${deviceDef.type}-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+      setNodes((nds) =>
+        nds.concat({
+          id: tempId,
+          position,
+          data: { label: deviceDef.label },
+          type: 'default',
+        })
+      );
+    },
+    [rf, setNodes, addDevice]
+  );
 
-
-    // NOTE: This component is currently using local React Flow state (nodes, edgeFlows) 
-    // and the global store (devices, edges) separately. Full integration would require 
-    // deriving nodes/edges from devices/edges and using onNodeChange/onEdgeChange to update the store.
-    // For the purpose of enabling drag and drop, this structure is sufficient to capture the drop event and call addDevice.
-
-    return (
-        <div className="reactflow-wrapper h-full w-full" ref={reactFlowWrapper}>
-            <ReactFlow
-                nodes={nodes}
-                edges={edgeFlows}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
-                onDrop={onDrop}
-                onDragOver={onDragOver}
-                nodeTypes={nodeTypes}
-                fitView
-            >
-                <Controls />
-            </ReactFlow>
-        </div>
-    );
+  return (
+    <div className="reactflow-wrapper h-full w-full">
+      <ReactFlow
+        nodes={nodes}
+        edges={edgeFlows}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        onDrop={onDrop}
+        onDragOver={onDragOver}
+        nodeTypes={nodeTypes}
+        fitView
+      >
+        <Controls />
+      </ReactFlow>
+    </div>
+  );
 };
 
 const TopologyCanvas: React.FC = () => (
-    <ReactFlowProvider>
-        <TopologyCanvasContent />
-    </ReactFlowProvider>
+  <ReactFlowProvider>
+    <TopologyCanvasContent />
+  </ReactFlowProvider>
 );
 
 export default TopologyCanvas;
