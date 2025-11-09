@@ -1,0 +1,8 @@
+auto-commits: true
+dirty-commits: true
+auto-lint: false      # verhindert den extra "Run linter"-Commit
+no-auto-test: true    # optional ruhigstellen
+no-watch-files: true  # optional ruhigstellen
+
+model: google/gemini-flash-latest
+weak-model: google/gemini-flash-latest

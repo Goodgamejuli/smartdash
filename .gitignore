@@ -1,0 +1,7 @@
+.aider*
+node_modules/
+dist/
+build/
+.vite/
+.vscode/
+.DS_Store
