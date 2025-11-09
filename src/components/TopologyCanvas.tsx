@@ -6,9 +6,8 @@ import ReactFlow, {
     useEdgesState,
     Controls,
     Connection,
-    Viewport,
     XYPosition,
-} from 'reactflow';
+} from 'reactflow'; // NOTE: Ensure 'reactflow' package is installed (npm install reactflow)
 import 'reactflow/dist/style.css';
 import { useTopologyStore } from '../store/useTopologyStore';
 import { ALL_DEVICE_TYPES } from '../model/deviceTypes';
@@ -57,15 +56,6 @@ const TopologyCanvasContent: React.FC = () => {
             if (typeof type === 'undefined' || !type || !reactFlowBounds) {
                 return;
             }
-
-            // We need to calculate the position relative to the viewport
-            // Since we don't have access to the React Flow instance (useReactFlow hook) here easily,
-            // we rely on the parent component (AppShell) to handle the coordinate transformation
-            // OR we use the useReactFlow hook inside this component. Let's use useReactFlow.
-            
-            // Since useReactFlow must be inside ReactFlowProvider, we need to restructure slightly.
-            // For simplicity in this initial implementation, I will assume the drop coordinates
-            // are relative to the canvas wrapper and let the store handle the ID generation.
 
             const deviceDef = ALL_DEVICE_TYPES.find(d => d.type === type);
 
