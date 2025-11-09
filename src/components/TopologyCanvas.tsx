@@ -26,7 +26,7 @@ const TopologyCanvasContent: React.FC = () => {
     // React Flow state management (synced with ZUSTAND store later, but for now, use local state for simplicity)
     // NOTE: In a real application, nodes/edges should be derived from the store state (devices/edges)
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-    const [edgeFlows, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+    const [edgeFlows, setEdges, onEdgesChange] = useEdgesState(initialNodes);
 
     // Handler for connecting nodes
     const onConnect = useCallback(
