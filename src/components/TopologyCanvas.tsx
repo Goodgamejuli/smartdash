@@ -7,7 +7,7 @@ import ReactFlow, {
     Controls,
     Connection,
     XYPosition,
-} from 'reactflow'; // NOTE: Ensure 'reactflow' package is installed (npm install reactflow)
+} from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useTopologyStore } from '../store/useTopologyStore';
 import { ALL_DEVICE_TYPES } from '../model/deviceTypes';
