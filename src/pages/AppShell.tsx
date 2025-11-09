@@ -1,24 +1,36 @@
 import React from 'react';
 import TopBar from '../components/TopBar';
-import DevicePalette from '../components/DevicePalette';
 import TopologyCanvas from '../components/TopologyCanvas';
+import DevicePalette from '../components/DevicePalette';
 import RollingLog from '../components/RollingLog';
 
-/**
- * AppShell lays out the three main sections of the UI: the device palette,
- * the topology canvas, and the rolling log. It also includes a top bar.
- */
 const AppShell: React.FC = () => {
-  return (
-    <div className="h-screen w-screen grid grid-rows-[auto_1fr] bg-slate-50">
-      <TopBar />
-      <div className="grid grid-cols-[320px_1fr_360px] gap-2 p-2">
-        <DevicePalette />
-        <TopologyCanvas />
-        <RollingLog />
-      </div>
-    </div>
-  );
+    return (
+        <div className="flex flex-col h-screen bg-gray-50">
+            {/* Top Bar (assuming it exists based on summary) */}
+            <header className="flex-shrink-0">
+                <TopBar />
+            </header>
+
+            {/* Main Content Area: Palette + Canvas */}
+            <main className="flex flex-grow overflow-hidden">
+                {/* Left Sidebar: Device Palette */}
+                <aside className="w-64 flex-shrink-0">
+                    <DevicePalette />
+                </aside>
+
+                {/* Canvas Area */}
+                <div className="flex-grow relative">
+                    <TopologyCanvas />
+
+                    {/* Rolling Log in the bottom right corner */}
+                    <div className="absolute bottom-4 right-4 w-96 h-64 z-10">
+                        <RollingLog />
+                    </div>
+                </div>
+            </main>
+        </div>
+    );
 };
 
 export default AppShell;
