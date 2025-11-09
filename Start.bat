@@ -4,7 +4,7 @@ setlocal ENABLEEXTENSIONS
 :: In Projektordner wechseln (wo package.json liegt)
 pushd "%~dp0"
 
-:: --- Checks ---
+:: ----- Checks -----
 if not exist "package.json" (
   echo [FEHLER] Keine package.json gefunden. Bitte die Batch im Projektordner ablegen/ausfuehren.
   pause & exit /b 1
@@ -19,7 +19,7 @@ if not exist "node_modules" (
   call npm install || (echo [FEHLER] npm install fehlgeschlagen. & pause & exit /b 1)
 )
 
-:: --- Port & Host setzen ---
+:: ----- Port & Host setzen -----
 set PORT=5173
 
 set LOCAL_URL=http://localhost:%PORT%/
