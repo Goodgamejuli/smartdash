@@ -31,11 +31,14 @@ const RollingLog: React.FC = () => {
         logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [logs]);
 
+    // Reverse the logs array so the newest log (index 0 in store) appears at the bottom of the list.
+    const displayedLogs = [...logs].reverse();
+
     return (
         <div className="flex flex-col h-full bg-white border border-gray-200 rounded shadow-xl">
             <h3 className="p-2 text-lg font-semibold border-b border-gray-200">System Log</h3>
             <div className="flex-grow overflow-y-auto p-2 space-y-1 font-mono text-sm">
-                {logs.map((log) => (
+                {displayedLogs.map((log) => (
                     // Using log.id for key, assuming it's unique
                     <LogEntry key={log.id} log={log} />
                 ))}
