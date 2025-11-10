@@ -1,10 +1,14 @@
 import React, { useRef } from 'react';
 import { useTopologyStore } from '../store/useTopologyStore';
 
+type TopBarProps = {
+  onShowTutorial: () => void;
+};
+
 // Die Top-Bar übernimmt nun echte Aufgaben: Szenarien speichern, laden und
 // mit einem Klick den Arbeitsbereich leeren – genau wie man es aus Packet
 // Tracer kennt.
-const TopBar: React.FC = () => {
+const TopBar: React.FC<TopBarProps> = ({ onShowTutorial }) => {
   const exportTopology = useTopologyStore((s) => s.exportTopology);
   const importTopology = useTopologyStore((s) => s.importTopology);
   const clearAll = useTopologyStore((s) => s.clearAll);
@@ -87,6 +91,13 @@ const TopBar: React.FC = () => {
           className="rounded border border-red-500 px-3 py-1 text-sm font-semibold text-red-500 hover:bg-red-50"
         >
           Reset
+        </button>
+        <button
+          type="button"
+          onClick={onShowTutorial}
+          className="rounded border border-slate-400 px-3 py-1 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+        >
+          Überblick Netzwerktechnik
         </button>
         <input
           ref={fileInputRef}

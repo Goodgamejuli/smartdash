@@ -45,6 +45,8 @@ const TopologyCanvasContent: React.FC = () => {
 
   const [nodes, setNodes, onNodesChangeBase] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChangeBase] = useEdgesState(initialEdges);
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
 
   // Wir merken uns die Definitionen der Gerätetypen, damit wir Icons und
   // Kategorien später erneut anzeigen können.
@@ -282,6 +284,86 @@ const TopologyCanvasContent: React.FC = () => {
     [addLog, edgesInStore, onEdgesChangeBase, removeEdgeFromStore]
   );
 
+  const onSelectionChange = useCallback((params: { nodes: FlowNode[]; edges: FlowEdge[] }) => {
+    setSelectedNodeIds(params.nodes.map((node) => node.id));
+    setSelectedEdgeIds(params.edges.map((edge) => edge.id));
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Delete') {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      if (target && target.tagName) {
+        const tagName = target.tagName.toUpperCase();
+        if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || target.isContentEditable) {
+          return;
+        }
+      }
+
+      if (
+        target instanceof HTMLElement &&
+        wrapperRef.current &&
+        !wrapperRef.current.contains(target) &&
+        target.tagName.toUpperCase() !== 'BODY'
+      ) {
+        return;
+      }
+
+      if (selectedNodeIds.length === 0 && selectedEdgeIds.length === 0) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (selectedNodeIds.length > 0) {
+        const idsToRemove = new Set(selectedNodeIds);
+        setNodes((current) => current.filter((node) => !idsToRemove.has(node.id)));
+        selectedNodeIds.forEach((id) => {
+          const device = devices.find((d) => d.id === id);
+          if (device) {
+            addLog(`Gerät entfernt: ${device.label}`);
+          }
+          removeDevice(id);
+        });
+      }
+
+      if (selectedEdgeIds.length > 0) {
+        const idsToRemove = new Set(selectedEdgeIds);
+        setEdges((current) => current.filter((edge) => !idsToRemove.has(edge.id)));
+        selectedEdgeIds.forEach((id) => {
+          const edge = edgesInStore.find((e) => e.id === id);
+          if (edge) {
+            addLog(
+              `Verbindung entfernt: ${edge.source} ⇄ ${edge.target} (${PROTOCOL_META[edge.protocol]?.label ?? edge.protocol})`
+            );
+          }
+          removeEdgeFromStore(id);
+        });
+      }
+
+      setSelectedNodeIds([]);
+      setSelectedEdgeIds([]);
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [
+    addLog,
+    devices,
+    edgesInStore,
+    removeDevice,
+    removeEdgeFromStore,
+    selectedEdgeIds,
+    selectedNodeIds,
+    setEdges,
+    setNodes,
+  ]);
+
   return (
     <div ref={wrapperRef} className="reactflow-wrapper h-full w-full bg-slate-100">
       <ReactFlow
@@ -289,6 +371,7 @@ const TopologyCanvasContent: React.FC = () => {
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onSelectionChange={onSelectionChange}
         onConnect={onConnect}
         onDrop={onDrop}
         onDragOver={onDragOver}
