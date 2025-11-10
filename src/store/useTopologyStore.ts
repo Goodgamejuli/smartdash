@@ -1,52 +1,59 @@
 import { create } from 'zustand';
-import { Device, Edge, LogEvent, Protocol } from '../model/schema';
 
-/**
- * useTopologyStore uses Zustand to manage the application state. It keeps
- * track of devices, edges and log events, and provides functions for
- * modifying them. The store is intentionally simple and does not persist
- * data between sessions.
- */
+export type LogEntry = { id: string; ts: number; text: string };
+
+export type Device = {
+  id: string;
+  type: string;
+  label: string;
+  x: number;
+  y: number;
+  protocols: string[];
+};
+
+export type Edge = { id: string; source: string; target: string; protocol?: string };
+
+let _id = 0;
+const nextId = () => String(++_id);
+
 type State = {
   devices: Device[];
   edges: Edge[];
-  selectedId?: string;
-  log: LogEvent[];
-  addDevice: (d: Omit<Device, 'id'>) => void;
-  moveDevice: (id: string, x: number, y: number) => void;
-  addEdge: (from: string, to: string, protocol: Protocol) => void;
-  addLog: (e: Omit<LogEvent, 'id' | 'ts'> & { ts?: string }) => void;
-  saveLayout: () => string;
-  loadLayout: (json: string) => void;
+  logs: LogEntry[];
+
+  addDevice: (d: Omit<Device, 'id'>) => Device;
+  addEdge: (e: Omit<Edge, 'id'>) => Edge;
+  addLog: (text: string) => void;
+  clearLog: () => void;
+
+  updateDevicePosition: (id: string, x: number, y: number) => void;
 };
 
-export const useTopologyStore = create<State>((set, get) => ({
+export const useTopologyStore = create<State>((set) => ({
   devices: [],
   edges: [],
-  log: [],
-  addDevice: (d) =>
-    set((state) => ({ devices: [...state.devices, { ...d, id: crypto.randomUUID() }] })),
-  moveDevice: (id, x, y) =>
-    set((state) => ({
-      devices: state.devices.map((v) => (v.id === id ? { ...v, x, y } : v)),
-    })),
-  addEdge: (from, to, protocol) =>
-    set((state) => ({
-      edges: [...state.edges, { id: crypto.randomUUID(), from, to, protocol }],
-    })),
-  addLog: (e) =>
-    set((state) => ({
-      log: [
-        { id: crypto.randomUUID(), ts: e.ts ?? new Date().toISOString(), ...e },
-        ...state.log,
-      ].slice(0, 500),
-    })),
-  saveLayout: () => {
-    const { devices, edges } = get();
-    return JSON.stringify({ devices, edges });
+  logs: [],
+
+  addDevice: (d) => {
+    const dev: Device = { id: nextId(), ...d };
+    set((s) => ({ devices: [...s.devices, dev] }));
+    return dev;
   },
-  loadLayout: (json) => {
-    const { devices, edges } = JSON.parse(json);
-    set({ devices, edges });
+
+  addEdge: (e) => {
+    const ed: Edge = { id: nextId(), ...e };
+    set((s) => ({ edges: [...s.edges, ed] }));
+    return ed;
   },
+
+  addLog: (text) =>
+    set((s) => ({ logs: [...s.logs, { id: nextId(), ts: Date.now(), text }] })),
+
+  clearLog: () => set({ logs: [] }),
+
+  // NEW
+  updateDevicePosition: (id, x, y) =>
+    set((s) => ({
+      devices: s.devices.map((d) => (d.id === id ? { ...d, x, y } : d)),
+    })),
 }));

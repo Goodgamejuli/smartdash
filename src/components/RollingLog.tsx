@@ -1,51 +1,29 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { useTopologyStore } from '../store/useTopologyStore';
-import { LogEvent } from '../model/schema';
-
-const LogEntry: React.FC<{ log: LogEvent }> = ({ log }) => {
-    let severityClass = 'text-gray-700';
-    if (log.severity === 'warn') {
-        severityClass = 'text-yellow-600';
-    } else if (log.severity === 'error') {
-        severityClass = 'text-red-600 font-medium';
-    }
-
-    // Format timestamp (assuming log.ts is an ISO string)
-    const time = new Date(log.ts).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-    return (
-        <div className={`text-xs p-0.5 border-b border-gray-100 ${severityClass}`}>
-            <span className="font-mono text-gray-400 mr-2">[{time}]</span>
-            {log.text}
-        </div>
-    );
-};
 
 const RollingLog: React.FC = () => {
-    // We rely on the summary of useTopologyStore which includes `log: LogEvent[]`
-    const logs = useTopologyStore((state) => state.log);
-    const logEndRef = useRef<HTMLDivElement>(null);
+  const logs = useTopologyStore((s) => s.logs);
 
-    // Effect to scroll to the bottom whenever logs change
-    useEffect(() => {
-        logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [logs]);
+  const safe = Array.isArray(logs) ? logs : [];
 
-    // Reverse the logs array so the newest log (index 0 in store) appears at the bottom of the list.
-    const displayedLogs = [...logs].reverse();
-
-    return (
-        <div className="flex flex-col h-full bg-white border border-gray-200 rounded shadow-xl">
-            <h3 className="p-2 text-lg font-semibold border-b border-gray-200">System Log</h3>
-            <div className="flex-grow overflow-y-auto p-2 space-y-1 font-mono text-sm">
-                {displayedLogs.map((log) => (
-                    // Using log.id for key, assuming it's unique
-                    <LogEntry key={log.id} log={log} />
-                ))}
-                <div ref={logEndRef} />
-            </div>
-        </div>
-    );
+  return (
+    <div
+      className="h-40 w-full overflow-auto rounded-md border border-gray-300 bg-white/80 p-2 text-sm"
+      role="log"
+      aria-live="polite"
+    >
+      {safe.length === 0 ? (
+        <div className="italic opacity-60">no messages yet</div>
+      ) : (
+        safe.slice(-200).map((l) => (
+          <div key={l.id} className="whitespace-pre-wrap">
+            <span className="opacity-50">[{new Date(l.ts).toLocaleTimeString()}]</span>{' '}
+            {l.text}
+          </div>
+        ))
+      )}
+    </div>
+  );
 };
 
 export default RollingLog;

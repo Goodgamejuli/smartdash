@@ -1,6 +1,4 @@
-// src/components/TopologyCanvas.tsx
-
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -10,97 +8,113 @@ import {
   Controls,
   type Connection,
   type XYPosition,
-  type Node,
-  type Edge,
-  useReactFlow,
+  type Edge as FlowEdge,
+  type Node as FlowNode,
+  type ReactFlowInstance,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import { useTopologyStore } from '../store/useTopologyStore';
+import { useTopologyStore, type Device } from '../store/useTopologyStore';
 import { ALL_DEVICE_TYPES } from '../model/deviceTypes';
-import type { Device } from '../model/schema';
 
-// Optional: custom node types map (empty for now)
 const nodeTypes = {};
-
-const initialNodes: Node[] = [];
-const initialEdges: Edge[] = [];
+const initialNodes: FlowNode[] = [];
+const initialEdges: FlowEdge[] = [];
 
 const TopologyCanvasContent: React.FC = () => {
-  const rf = useReactFlow();
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [rf, setRf] = useState<ReactFlowInstance | null>(null);
 
-  // pull only what you need from your store for now
-  const { addDevice /*, addEdge: storeAddEdge, devices, edges */ } = useTopologyStore();
+  const addDevice = useTopologyStore((s) => s.addDevice);
+  const addLog = useTopologyStore((s) => s.addLog);
+  const updateDevicePosition = useTopologyStore((s) => s.updateDevicePosition);
 
-  // local UI state (we'll sync with store later)
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edgeFlows, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
   const onConnect = useCallback(
     (params: Connection) => {
       setEdges((eds) => addEdge(params, eds));
-      // later: also persist to store if desired
+      if (params.source && params.target) {
+        addLog(`Connected ${params.source} → ${params.target}`);
+      }
     },
-    [setEdges]
+    [setEdges, addLog]
   );
-
-  const onDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-  }, []);
 
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
+      if (!rf) return;
 
       const type = event.dataTransfer.getData('application/reactflow');
       if (!type) return;
 
-      const deviceDef = ALL_DEVICE_TYPES.find((d) => d.type === type);
-      if (!deviceDef) return;
+      const def = ALL_DEVICE_TYPES.find((d) => d.type === type);
+      if (!def) return;
 
-      // translate screen -> flow coords (handles zoom/pan correctly)
-      const position: XYPosition = rf.screenToFlowPosition({
+      // ✅ Keine manuellen Bounds abziehen – direkt Screen→Flow
+      const pos: XYPosition = rf.screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
       });
 
-      // store model
-      const newDevice: Omit<Device, 'id'> = {
-        type: deviceDef.type,
-        label: deviceDef.label,
-        x: position.x,
-        y: position.y,
-        protocols: deviceDef.protocols,
+      const newDev: Omit<Device, 'id'> = {
+        type: def.type,
+        label: def.label,
+        x: pos.x,
+        y: pos.y,
+        protocols: def.protocols,
       };
-      addDevice(newDevice);
+      const created = addDevice(newDev);
 
-      // immediate UI feedback with a temp node
-      const tempId = `${deviceDef.type}-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
       setNodes((nds) =>
         nds.concat({
-          id: tempId,
-          position,
-          data: { label: deviceDef.label },
-          type: 'default',
+          id: created.id,
+          position: pos,
+          data: { label: def.label },
         })
       );
+
+      addLog(`Device placed: ${def.label} @ (${Math.round(pos.x)}, ${Math.round(pos.y)})`);
     },
-    [rf, setNodes, addDevice]
+    [rf, addDevice, addLog, setNodes]
+  );
+
+  const onDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  // ✅ Logge Positionsänderungen & schreibe sie in den Store
+  const onNodeDragStop = useCallback(
+    (_e: React.MouseEvent, node: FlowNode) => {
+      updateDevicePosition(node.id, node.position.x, node.position.y);
+      const label = (node.data as any)?.label ?? node.id;
+      addLog(
+        `Device moved: ${label} -> (${Math.round(node.position.x)}, ${Math.round(
+          node.position.y
+        )})`
+      );
+    },
+    [updateDevicePosition, addLog]
   );
 
   return (
-    <div className="reactflow-wrapper h-full w-full">
+    <div ref={wrapperRef} className="reactflow-wrapper h-full w-full">
       <ReactFlow
         nodes={nodes}
-        edges={edgeFlows}
+        edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onDrop={onDrop}
         onDragOver={onDragOver}
+        onNodeDragStop={onNodeDragStop}
+        onInit={setRf}
         nodeTypes={nodeTypes}
-        fitView
+        // Optional: nimm 'fitView' raus, wenn du absolut keine Auto-Zentrierung willst
+        // fitView
       >
         <Controls />
       </ReactFlow>
