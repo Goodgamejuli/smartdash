@@ -4,33 +4,30 @@ import TopologyCanvas from '../components/TopologyCanvas';
 import DevicePalette from '../components/DevicePalette';
 import RollingLog from '../components/RollingLog';
 
+// Das App-Shell ordnet die Bausteine: Links wie im Packet Tracer die Palette,
+// rechts die Arbeitsfläche und darunter das Live-Log.
 const AppShell: React.FC = () => {
-    return (
-        <div className="flex flex-col h-screen bg-gray-50">
-            {/* Top Bar (assuming it exists based on summary) */}
-            <header className="flex-shrink-0">
-                <TopBar />
-            </header>
+  return (
+    <div className="flex h-screen flex-col bg-gray-50">
+      <header className="flex-shrink-0">
+        <TopBar />
+      </header>
 
-            {/* Main Content Area: Palette + Canvas */}
-            <main className="flex flex-grow overflow-hidden">
-                {/* Left Sidebar: Device Palette */}
-                <aside className="w-64 flex-shrink-0">
-                    <DevicePalette />
-                </aside>
+      <main className="flex flex-grow overflow-hidden">
+        <aside className="w-72 flex-shrink-0">
+          <DevicePalette />
+        </aside>
 
-                {/* Canvas Area */}
-                <div className="flex-grow relative">
-                    <TopologyCanvas />
+        <div className="relative flex-grow">
+          <TopologyCanvas />
 
-                    {/* Rolling Log in the bottom right corner */}
-                    <div className="absolute bottom-4 right-4 w-96 h-64 z-10">
-                        <RollingLog />
-                    </div>
-                </div>
-            </main>
+          <div className="absolute bottom-4 right-4 z-10 h-64 w-96">
+            <RollingLog />
+          </div>
         </div>
-    );
+      </main>
+    </div>
+  );
 };
 
 export default AppShell;
