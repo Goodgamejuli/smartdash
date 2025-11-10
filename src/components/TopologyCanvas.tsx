@@ -1,4 +1,6 @@
-import React, { useCallback, useRef, useState } from 'react';
+// src/components/TopologyCanvas.tsx
+
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -8,103 +10,163 @@ import {
   Controls,
   type Connection,
   type XYPosition,
-  type Edge as FlowEdge,
   type Node as FlowNode,
+  type Edge as FlowEdge,
   type ReactFlowInstance,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import { useTopologyStore, type Device } from '../store/useTopologyStore';
+import { useTopologyStore } from '../store/useTopologyStore';
 import { ALL_DEVICE_TYPES } from '../model/deviceTypes';
+import type { Device } from '../model/schema';
 
+// Optional: custom node types map (empty for now)
 const nodeTypes = {};
-const initialNodes: FlowNode[] = [];
-const initialEdges: FlowEdge[] = [];
 
 const TopologyCanvasContent: React.FC = () => {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [rf, setRf] = useState<ReactFlowInstance | null>(null);
 
-  const addDevice = useTopologyStore((s) => s.addDevice);
-  const addLog = useTopologyStore((s) => s.addLog);
-  const updateDevicePosition = useTopologyStore((s) => s.updateDevicePosition);
+  const devices = useTopologyStore((state) => state.devices);
+  const edges = useTopologyStore((state) => state.edges);
+  const addDevice = useTopologyStore((state) => state.addDevice);
+  const addEdgeToStore = useTopologyStore((state) => state.addEdge);
+  const moveDevice = useTopologyStore((state) => state.moveDevice);
+  const addLog = useTopologyStore((state) => state.addLog);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>([]);
+  const [edgeFlows, setEdges, onEdgesChange] = useEdgesState<FlowEdge>([]);
+
+  const flowNodes = useMemo<FlowNode[]>(
+    () =>
+      devices.map((device) => ({
+        id: device.id,
+        position: { x: device.x, y: device.y },
+        data: { label: device.label },
+        type: 'default',
+      })),
+    [devices]
+  );
+
+  const flowEdges = useMemo<FlowEdge[]>(
+    () =>
+      edges.map((edge) => ({
+        id: edge.id,
+        source: edge.from,
+        target: edge.to,
+        label: edge.protocol,
+        type: 'default',
+      })),
+    [edges]
+  );
+
+  useEffect(() => {
+    setNodes(flowNodes);
+  }, [flowNodes, setNodes]);
+
+  useEffect(() => {
+    setEdges(flowEdges);
+  }, [flowEdges, setEdges]);
 
   const onConnect = useCallback(
     (params: Connection) => {
       setEdges((eds) => addEdge(params, eds));
-      if (params.source && params.target) {
-        addLog(`Connected ${params.source} → ${params.target}`);
+      if (!params.source || !params.target) {
+        return;
       }
+
+      const sourceDevice = devices.find((device) => device.id === params.source);
+      const targetDevice = devices.find((device) => device.id === params.target);
+      const protocol =
+        sourceDevice && targetDevice
+          ? sourceDevice.protocols.find((candidate) =>
+              targetDevice.protocols.includes(candidate)
+            ) ?? 'WLAN'
+          : 'WLAN';
+
+      addEdgeToStore(params.source, params.target, protocol);
+      const sourceLabel = sourceDevice?.label ?? params.source;
+      const targetLabel = targetDevice?.label ?? params.target;
+      addLog({
+        severity: 'info',
+        text: `Verbindung erstellt: ${sourceLabel} → ${targetLabel} (${protocol})`,
+      });
     },
-    [setEdges, addLog]
+    [setEdges, addEdgeToStore, addLog, devices]
   );
+
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }, []);
 
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
-      if (!rf) return;
 
       const type = event.dataTransfer.getData('application/reactflow');
       if (!type) return;
 
-      const def = ALL_DEVICE_TYPES.find((d) => d.type === type);
-      if (!def) return;
+      const deviceDef = ALL_DEVICE_TYPES.find((d) => d.type === type);
+      if (!deviceDef) return;
 
-      // ✅ Keine manuellen Bounds abziehen – direkt Screen→Flow
-      const pos: XYPosition = rf.screenToFlowPosition({
+      // translate screen -> flow coords (handles zoom/pan correctly)
+      if (!rf) return;
+
+      const position: XYPosition = rf.screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
       });
 
-      const newDev: Omit<Device, 'id'> = {
-        type: def.type,
-        label: def.label,
-        x: pos.x,
-        y: pos.y,
-        protocols: def.protocols,
+      // store model
+      const newDevice: Omit<Device, 'id'> = {
+        type: deviceDef.type,
+        label: deviceDef.label,
+        x: position.x,
+        y: position.y,
+        protocols: deviceDef.protocols,
       };
-      const created = addDevice(newDev);
-
+      const created = addDevice(newDevice);
       setNodes((nds) =>
         nds.concat({
           id: created.id,
-          position: pos,
-          data: { label: def.label },
+          position,
+          data: { label: created.label },
+          type: 'default',
         })
       );
 
-      addLog(`Device placed: ${def.label} @ (${Math.round(pos.x)}, ${Math.round(pos.y)})`);
+      addLog({
+        severity: 'info',
+        text: `Gerät platziert: ${deviceDef.label} @ (${Math.round(position.x)}, ${Math.round(
+          position.y
+        )})`,
+        deviceId: created.id,
+      });
     },
-    [rf, addDevice, addLog, setNodes]
+    [rf, setNodes, addDevice, addLog]
   );
 
-  const onDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  }, []);
-
-  // ✅ Logge Positionsänderungen & schreibe sie in den Store
   const onNodeDragStop = useCallback(
-    (_e: React.MouseEvent, node: FlowNode) => {
-      updateDevicePosition(node.id, node.position.x, node.position.y);
-      const label = (node.data as any)?.label ?? node.id;
-      addLog(
-        `Device moved: ${label} -> (${Math.round(node.position.x)}, ${Math.round(
+    (_event: React.MouseEvent, node: FlowNode) => {
+      moveDevice(node.id, node.position.x, node.position.y);
+      const label = (node.data as { label?: string } | undefined)?.label ?? node.id;
+      addLog({
+        severity: 'info',
+        text: `Gerät verschoben: ${label} → (${Math.round(node.position.x)}, ${Math.round(
           node.position.y
-        )})`
-      );
+        )})`,
+        deviceId: node.id,
+      });
     },
-    [updateDevicePosition, addLog]
+    [moveDevice, addLog]
   );
 
   return (
     <div ref={wrapperRef} className="reactflow-wrapper h-full w-full">
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={edgeFlows}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
@@ -113,8 +175,7 @@ const TopologyCanvasContent: React.FC = () => {
         onNodeDragStop={onNodeDragStop}
         onInit={setRf}
         nodeTypes={nodeTypes}
-        // Optional: nimm 'fitView' raus, wenn du absolut keine Auto-Zentrierung willst
-        // fitView
+        fitView
       >
         <Controls />
       </ReactFlow>

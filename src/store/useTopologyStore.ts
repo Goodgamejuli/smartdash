@@ -1,59 +1,56 @@
 import { create } from 'zustand';
+import { Device, Edge, LogEvent, Protocol } from '../model/schema';
 
-export type LogEntry = { id: string; ts: number; text: string };
-
-export type Device = {
-  id: string;
-  type: string;
-  label: string;
-  x: number;
-  y: number;
-  protocols: string[];
-};
-
-export type Edge = { id: string; source: string; target: string; protocol?: string };
-
-let _id = 0;
-const nextId = () => String(++_id);
-
+/**
+ * useTopologyStore uses Zustand to manage the application state. It keeps
+ * track of devices, edges and log events, and provides functions for
+ * modifying them. The store is intentionally simple and does not persist
+ * data between sessions.
+ */
 type State = {
   devices: Device[];
   edges: Edge[];
-  logs: LogEntry[];
-
+  selectedId?: string;
+  log: LogEvent[];
   addDevice: (d: Omit<Device, 'id'>) => Device;
-  addEdge: (e: Omit<Edge, 'id'>) => Edge;
-  addLog: (text: string) => void;
-  clearLog: () => void;
-
-  updateDevicePosition: (id: string, x: number, y: number) => void;
+  moveDevice: (id: string, x: number, y: number) => void;
+  addEdge: (from: string, to: string, protocol: Protocol) => Edge;
+  addLog: (e: Omit<LogEvent, 'id' | 'ts'> & { ts?: string }) => void;
+  saveLayout: () => string;
+  loadLayout: (json: string) => void;
 };
 
-export const useTopologyStore = create<State>((set) => ({
+export const useTopologyStore = create<State>((set, get) => ({
   devices: [],
   edges: [],
-  logs: [],
-
+  log: [],
   addDevice: (d) => {
-    const dev: Device = { id: nextId(), ...d };
-    set((s) => ({ devices: [...s.devices, dev] }));
-    return dev;
+    const created: Device = { ...d, id: crypto.randomUUID() };
+    set((state) => ({ devices: [...state.devices, created] }));
+    return created;
   },
-
-  addEdge: (e) => {
-    const ed: Edge = { id: nextId(), ...e };
-    set((s) => ({ edges: [...s.edges, ed] }));
-    return ed;
-  },
-
-  addLog: (text) =>
-    set((s) => ({ logs: [...s.logs, { id: nextId(), ts: Date.now(), text }] })),
-
-  clearLog: () => set({ logs: [] }),
-
-  // NEW
-  updateDevicePosition: (id, x, y) =>
-    set((s) => ({
-      devices: s.devices.map((d) => (d.id === id ? { ...d, x, y } : d)),
+  moveDevice: (id, x, y) =>
+    set((state) => ({
+      devices: state.devices.map((v) => (v.id === id ? { ...v, x, y } : v)),
     })),
+  addEdge: (from, to, protocol) => {
+    const edge: Edge = { id: crypto.randomUUID(), from, to, protocol };
+    set((state) => ({ edges: [...state.edges, edge] }));
+    return edge;
+  },
+  addLog: (e) =>
+    set((state) => ({
+      log: [
+        { id: crypto.randomUUID(), ts: e.ts ?? new Date().toISOString(), ...e },
+        ...state.log,
+      ].slice(0, 500),
+    })),
+  saveLayout: () => {
+    const { devices, edges } = get();
+    return JSON.stringify({ devices, edges });
+  },
+  loadLayout: (json) => {
+    const { devices, edges } = JSON.parse(json);
+    set({ devices, edges });
+  },
 }));
