@@ -1,8 +1,8 @@
 export type Protocol =
   | 'WLAN'
   | 'ZigBee'
-  | 'Homematic'
-  | 'BLE'
+  | 'Homematic Proprietary (ZigBee)'
+  | 'Bluetooth Low Energy'
   | 'DECT'
   | 'Ethernet';
 
