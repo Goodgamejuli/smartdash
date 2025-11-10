@@ -2,7 +2,6 @@ import React, { useCallback, useRef, useState } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
-  addEdge,
   useNodesState,
   useEdgesState,
   Controls,
@@ -27,19 +26,31 @@ const TopologyCanvasContent: React.FC = () => {
 
   const addDevice = useTopologyStore((s) => s.addDevice);
   const addLog = useTopologyStore((s) => s.addLog);
+  const addEdgeToStore = useTopologyStore((s) => s.addEdge);
   const updateDevicePosition = useTopologyStore((s) => s.updateDevicePosition);
+  const removeDeviceFromStore = useTopologyStore((s) => s.removeDevice);
+  const removeEdgeFromStore = useTopologyStore((s) => s.removeEdge);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
   const onConnect = useCallback(
     (params: Connection) => {
-      setEdges((eds) => addEdge(params, eds));
-      if (params.source && params.target) {
-        addLog(`Connected ${params.source} → ${params.target}`);
+      if (!params.source || !params.target) {
+        return;
       }
+
+      const newEdge: FlowEdge = {
+        id: `edge-${params.source}-${params.target}-${Date.now()}`,
+        source: params.source,
+        target: params.target,
+      };
+
+      setEdges((eds) => eds.concat(newEdge));
+      addEdgeToStore({ id: newEdge.id, source: newEdge.source, target: newEdge.target });
+      addLog(`Connected ${params.source} → ${params.target}`);
     },
-    [setEdges, addLog]
+    [setEdges, addLog, addEdgeToStore]
   );
 
   const onDrop = useCallback(
@@ -100,6 +111,53 @@ const TopologyCanvasContent: React.FC = () => {
     [updateDevicePosition, addLog]
   );
 
+  const onNodeContextMenu = useCallback(
+    (event: React.MouseEvent, node: FlowNode) => {
+      event.preventDefault();
+      const label = (node.data as any)?.label ?? node.id;
+      const relatedEdges = edges.filter((edge) => edge.source === node.id || edge.target === node.id);
+      const shouldDelete = window.confirm(
+        relatedEdges.length > 0
+          ? `Delete "${label}" and ${relatedEdges.length} connected link${relatedEdges.length > 1 ? 's' : ''}?`
+          : `Delete "${label}"?`
+      );
+
+      if (!shouldDelete) {
+        return;
+      }
+
+      setNodes((nds) => nds.filter((n) => n.id !== node.id));
+      setEdges((eds) => eds.filter((edge) => edge.source !== node.id && edge.target !== node.id));
+      removeDeviceFromStore(node.id);
+      relatedEdges.forEach((edge) => removeEdgeFromStore(edge.id));
+
+      addLog(
+        relatedEdges.length > 0
+          ? `Deleted device ${label} (removed ${relatedEdges.length} link${relatedEdges.length > 1 ? 's' : ''})`
+          : `Deleted device ${label}`
+      );
+    },
+    [edges, setNodes, setEdges, removeDeviceFromStore, removeEdgeFromStore, addLog]
+  );
+
+  const onEdgeContextMenu = useCallback(
+    (event: React.MouseEvent, edge: FlowEdge) => {
+      event.preventDefault();
+      const shouldDelete = window.confirm(
+        `Delete connection ${edge.source} → ${edge.target}?`
+      );
+
+      if (!shouldDelete) {
+        return;
+      }
+
+      setEdges((eds) => eds.filter((e) => e.id !== edge.id));
+      removeEdgeFromStore(edge.id);
+      addLog(`Deleted connection ${edge.source} → ${edge.target}`);
+    },
+    [setEdges, removeEdgeFromStore, addLog]
+  );
+
   return (
     <div ref={wrapperRef} className="reactflow-wrapper h-full w-full">
       <ReactFlow
@@ -111,6 +169,8 @@ const TopologyCanvasContent: React.FC = () => {
         onDrop={onDrop}
         onDragOver={onDragOver}
         onNodeDragStop={onNodeDragStop}
+        onNodeContextMenu={onNodeContextMenu}
+        onEdgeContextMenu={onEdgeContextMenu}
         onInit={setRf}
         nodeTypes={nodeTypes}
         // Optional: nimm 'fitView' raus, wenn du absolut keine Auto-Zentrierung willst

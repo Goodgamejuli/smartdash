@@ -22,7 +22,9 @@ type State = {
   logs: LogEntry[];
 
   addDevice: (d: Omit<Device, 'id'>) => Device;
-  addEdge: (e: Omit<Edge, 'id'>) => Edge;
+  addEdge: (e: Omit<Edge, 'id'> & { id?: string }) => Edge;
+  removeDevice: (id: string) => void;
+  removeEdge: (id: string) => void;
   addLog: (text: string) => void;
   clearLog: () => void;
 
@@ -41,10 +43,18 @@ export const useTopologyStore = create<State>((set) => ({
   },
 
   addEdge: (e) => {
-    const ed: Edge = { id: nextId(), ...e };
+    const ed: Edge = { id: e.id ?? nextId(), source: e.source, target: e.target, protocol: e.protocol };
     set((s) => ({ edges: [...s.edges, ed] }));
     return ed;
   },
+
+  removeDevice: (id) =>
+    set((s) => ({
+      devices: s.devices.filter((d) => d.id !== id),
+      edges: s.edges.filter((e) => e.source !== id && e.target !== id),
+    })),
+
+  removeEdge: (id) => set((s) => ({ edges: s.edges.filter((e) => e.id !== id) })),
 
   addLog: (text) =>
     set((s) => ({ logs: [...s.logs, { id: nextId(), ts: Date.now(), text }] })),
