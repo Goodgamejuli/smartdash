@@ -1,8 +1,16 @@
+// In diesem kleinen Schema sammeln wir die zentralen Typdefinitionen,
+// die sich rund um die Topologie drehen. Ein sauber gepflegtes Typsystem
+// hilft uns später dabei, die JSON-Exports zu validieren und macht die
+// übrigen Skripte deutlich lesbarer.
+
+// Wir definieren die möglichen Protokolle so, wie sie im restlichen Code
+// wirklich genannt werden. Dadurch können wir Farben, Texte und Legenden
+// zuverlässig zuordnen.
 export type Protocol =
   | 'WLAN'
   | 'ZigBee'
-  | 'Homematic'
-  | 'BLE'
+  | 'Homematic Proprietary (ZigBee)'
+  | 'Bluetooth Low Energy'
   | 'DECT'
   | 'Ethernet';
 

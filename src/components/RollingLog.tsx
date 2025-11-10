@@ -1,6 +1,9 @@
 import React from 'react';
 import { useTopologyStore } from '../store/useTopologyStore';
 
+// Das Log ist der kleine Erzähler der Anwendung und berichtet freundlich über
+// jede Aktion. So lässt sich gut nachvollziehen, welche Schritte passiert
+// sind.
 const RollingLog: React.FC = () => {
   const logs = useTopologyStore((s) => s.logs);
 
@@ -13,7 +16,7 @@ const RollingLog: React.FC = () => {
       aria-live="polite"
     >
       {safe.length === 0 ? (
-        <div className="italic opacity-60">no messages yet</div>
+        <div className="italic text-gray-500">Noch keine Meldungen – lege los!</div>
       ) : (
         safe.slice(-200).map((l) => (
           <div key={l.id} className="whitespace-pre-wrap">

@@ -1,0 +1,33 @@
+Smartdash – Skriptüberblick
+===========================
+
+📦 Wichtige Verzeichnisse
+-------------------------
+- src/
+  - App.tsx → Einstiegspunkt für die UI, reicht das AppShell weiter.
+  - main.tsx → Mountet die React-Anwendung in das HTML-DOM-Element.
+  - components/
+    - TopBar.tsx → Toolbar mit Speichern/Laden/Reset sowie Datei-Import.
+    - DevicePalette.tsx → Gruppierte Geräteübersicht inkl. Verbindungs-Legende.
+    - TopologyCanvas.tsx → React-Flow-Canvas zum Platzieren und Verbinden der Geräte.
+    - RollingLog.tsx → Freundliches Aktionslog in der rechten unteren Ecke.
+    - nodes/SmartDeviceNode.tsx → Optisch ansprechender Node mit Handles & Protokoll-Badges.
+  - pages/
+    - AppShell.tsx → Layout-Rahmen (Palette links, Canvas rechts, Log unten).
+  - model/
+    - deviceTypes.ts → Definitionen der Geräte, Icons & Kategorien.
+    - protocols.ts → Konstanten & Farben zu den Protokollen.
+    - schema.ts → Gemeinsame Typen für Geräte, Verbindungen und Logs.
+  - store/
+    - useTopologyStore.ts → Zustand mit Geräten, Kanten, Logik zum Speichern/Laden.
+
+🧰 Wichtige Funktionen
+----------------------
+- JSON-Export/Import der Topologie über die Top-Bar.
+- Farbige Verbindungslinien je nach Protokoll (WLAN, BLE, ZigBee, Ethernet, DECT, Homematic).
+- Packet-Tracer-ähnliche Palette mit Netzwerkgeräten ganz oben.
+- Mini-Map, gepunkteter Hintergrund und Handles für intuitives Verkabeln.
+
+💡 Tipp
+-------
+Alle Aktionen landen im Log – perfekt, um den Aufbau einer Topologie nachzuvollziehen.

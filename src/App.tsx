@@ -1,8 +1,8 @@
 import React from 'react';
 import AppShell from './pages/AppShell';
 
-// Root component that renders the application shell. Additional
-// providers or global context can be added here if necessary.
+// Hier startet die Anwendung: Wir reichen lediglich das AppShell weiter und
+// könnten bei Bedarf globale Provider ergänzen.
 function App() {
   return <AppShell />;
 }
